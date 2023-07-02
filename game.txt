@@ -1,0 +1,29 @@
+
+
+main function {
+
+    -read inicial conditions
+    -create game
+    -print game inicial conditions
+
+    while(gameOver == false){
+        
+        -play the game(1) 
+
+        -print game status after the last move
+
+    }
+}
+
+(1) play the game{ 
+
+    receive move input from player;
+        -coloca o input no vetor;
+        -desconta 1 dos movimentos restantes
+    move os fantasmas;
+        -move todos de uma vez
+        -ver se o fantasma ta no mapa
+        -ve qual o movimento, e qual seria a proxima casa correspondete
+            -se for parede, inverte o movimento
+
+}
