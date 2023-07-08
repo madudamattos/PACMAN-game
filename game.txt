@@ -31,3 +31,13 @@ main function {
         - se não der game over, movimenta e pontua 
 
 }
+
+verify game results{
+ 
+    1. verifica se encontrou com algum fantasma OU se acabou os movimentos = game over;
+    2. caso não seja  game over: verifica se pontuou;
+    3. verifica se ainda há alguma comida no mapa 
+        - se nao, pontua e muda o game over status 
+        - se sim, pontua e conitnua;
+
+}
