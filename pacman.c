@@ -396,7 +396,7 @@ tGame moveGhosts(tGame game){
 }
 
 tGame movePacman(tGame game, char move){
-    int i, pI, pJ; 
+    int i, pI, pJ, a; 
     tPosition next;
 
     pI = game.pacman.playerPosition.positionI;
