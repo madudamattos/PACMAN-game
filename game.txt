@@ -22,8 +22,12 @@ main function {
         -desconta 1 dos movimentos restantes
     move os fantasmas;
         -move todos de uma vez
-        -ver se o fantasma ta no mapa
         -ve qual o movimento, e qual seria a proxima casa correspondete
             -se for parede, inverte o movimento
+    move o pacman
+        - prevê o estado do próximo movimento 
+            - verifica se vai dar game gameOver
+                - se der game over, retorna game over
+        - se não der game over, movimenta e pontua 
 
 }
