@@ -1,6 +1,8 @@
 #include <stdio.h>
 
 #define TAM 50;
+#define OVER 1; 
+#define WIN 2; 
 
 typedef struct{
     int positionI;
@@ -81,6 +83,8 @@ void printGameState(tGame game);
 tGame movePacman(tGame game, char move);
 tGame moveGhosts(tGame game);
 tPlayer receiveMove(tGame game);
+tGame verifyGameResults(tGame game);
+void printGameFinalStatus(tGame game);
 
 int main(){
     tGame game;
@@ -96,7 +100,7 @@ int main(){
 
     }while(!(game.over));
 
-    //printGameFinalStatus(game);
+    printGameFinalStatus(game);
 
     return 0;
 }
@@ -183,13 +187,13 @@ tPosition locatePacman(tGame game){
 }
 
 int locateFood(tGame game, int i, int j){
-    int k, thereIsAFoodInThisPosition = 0;
+    int k, thereIsAFoodInThisPosition = -1;
     
     for(k=0; k<game.foodAmount; k++){
         if(game.foods[k].foodPosition.positionI == i &&
            game.foods[k].foodPosition.positionJ == j && 
            game.foods[k].status == 1){
-            thereIsAFoodInThisPosition = 1;
+            thereIsAFoodInThisPosition = k;
            }
     }
 
@@ -259,7 +263,7 @@ void printMap(tGame game){
 
     for(i=0; i<game.map.sizeI; i++){
         for(j=0; j<game.map.sizeJ; j++){
-            if(locateFood(game, i, j) == 1 && 
+            if(locateFood(game, i, j) != -1 && 
                 game.map.board[i][j] == game.symbol.empty){
 
                 printf("%c", game.symbol.food);
@@ -277,7 +281,7 @@ void printInitialGameStatus(tGame game){
     
     printMap(game);
 
-    printf("Pac-Man comecara o jogo na linha %d e coluna %d\n",
+    printf("Pac-Man comecara o jogo na linha %d e coluna %d\n\n",
             game.pacman.playerPosition.positionI+1,
             game.pacman.playerPosition.positionJ+1);
 
@@ -293,7 +297,7 @@ void printGameState(tGame game){
 
     printf("Estado do jogo apos o movimento '%c':\n", game.pacman.moves[i-1].moveInput);
     printMap(game);
-    printf("Pontuacao: %d\n", game.pacman.points);
+    printf("Pontuacao: %d\n\n", game.pacman.points);
 
     return;
 }
@@ -311,6 +315,8 @@ tGame playGame(tGame game){
     game = moveGhosts(game);
 
     game = movePacman(game, move);
+
+    game = verifyGameResults(game);
 
     return game;
 }
@@ -396,7 +402,7 @@ tGame moveGhosts(tGame game){
 }
 
 tGame movePacman(tGame game, char move){
-    int i, pI, pJ; 
+    int i, pI, pJ, a; 
     tPosition next;
 
     pI = game.pacman.playerPosition.positionI;
@@ -420,23 +426,83 @@ tGame movePacman(tGame game, char move){
         next.positionJ = pJ + 1;
     }
 
+
     //se a próxima posição for parede, inverte o padrão de movimento e muda a localização da próxima posição
 
-    if(game.map.board[next.positionI][next.positionJ] == 
+    else if(game.map.board[next.positionI][next.positionJ] == 
         game.symbol.wall){
 
         next.positionI = pI;
         next.positionJ = pJ;
     }
 
-    //após as avaliações, o pacman pode mover pra próxima posição 
-
-    //primeiro limpa a posição antiga no mapa e depois coloca ele no lugar da nova posição
-    
     game.map.board[pI][pJ] = game.symbol.empty;
-    game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;        
+
+    //após as avaliações, o pacman pode mover pra próxima posição 
+    //mas primeiro tem que limpar a posição antiga
+    
+    //se a proxima posicao NAO for um fantasma,ele pode mover pra proxima posição
+        
+    if(!(game.map.board[next.positionI][next.positionJ] >= 'A' && game.map.board[next.positionI][next.positionJ] <= 'Z')){
+        game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;      
+    }     
+
     game.pacman.playerPosition.positionI = next.positionI;
     game.pacman.playerPosition.positionJ = next.positionJ;
 
     return game;
+}
+
+tGame verifyGameResults(tGame game){
+    int i, j;
+    int pI, pJ;
+    int food = -1;
+    int flag = -7;
+
+    pI = game.pacman.playerPosition.positionI;
+    pJ = game.pacman.playerPosition.positionJ;
+
+    //verifica se o jogo acabou
+    for(i=0;i<game.ghostAmount;i++){
+        if(((game.ghosts[i].ghostPosition.positionI == pI) && (game.ghosts[i].ghostPosition.positionJ ==  pJ)) || (game.pacman.remainingMoves == 0)){
+            game.over = OVER;
+            return game;
+        }
+    }
+
+    //verifica se tem uma comida naquela posição
+    food = locateFood(game, pI, pJ);
+
+    //se tiver comida vai pontuar
+    if(food != -1){
+        game.pacman.points++;
+        game.foods[food].status = 0;
+    }
+    
+    //avalia se tem comida no mapa depois da ultima jogada
+    for(i=0;i<game.foodAmount;i++){
+        if(game.foods[i].status == 1){
+            flag = 1;
+        }
+    }
+
+    //se não tiver mais nenhuma comida 
+    if(flag == -7){
+        game.over = WIN;
+    }
+
+    return game;
+}
+
+void printGameFinalStatus(tGame game){
+    if(game.over == 2){
+        printf("Voce venceu!\n");
+    }
+    else if(game.over == 1){
+        printf("Game over!\n");
+    }
+
+    printf("Pontuacao final: %d\n", game.pacman.points);
+
+    return;
 }
