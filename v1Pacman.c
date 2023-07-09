@@ -194,6 +194,7 @@ int locateFood(tGame game, int i, int j){
            game.foods[k].foodPosition.positionJ == j && 
            game.foods[k].status == 1){
             thereIsAFoodInThisPosition = k;
+            break;
            }
     }
 
@@ -429,7 +430,7 @@ tGame movePacman(tGame game, char move){
 
     //se a próxima posição for parede, inverte o padrão de movimento e muda a localização da próxima posição
 
-    else if(game.map.board[next.positionI][next.positionJ] == 
+    if(game.map.board[next.positionI][next.positionJ] == 
         game.symbol.wall){
 
         next.positionI = pI;
