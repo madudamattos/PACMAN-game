@@ -1,4 +1,4 @@
-
+~/prog1/trabalho/teste/
 
 main function {
 
@@ -41,3 +41,10 @@ verify game results{
         - se sim, pontua e conitnua;
 
 }
+
+Gerar resumo: 
+código de alterações: 
+nada: 0
+comida: 1
+colisão com parede: 2
+fim de jogo: 3

@@ -1,8 +1,11 @@
 #include <stdio.h>
 
-#define TAM 50;
-#define OVER 1; 
-#define WIN 2; 
+#define TAM 1000
+#define OVER 1 
+#define WIN 2 
+#define WALLCOLISION 13
+#define GETFOOD 14
+#define GHOST 15
 
 typedef struct{
     int positionI;
@@ -19,7 +22,7 @@ typedef struct{
     int remainingMoves;
     int moveCounter;
     tPosition playerPosition;
-    tMove moves[50];
+    tMove moves[TAM];
     int points; 
 } tPlayer;
 
@@ -58,8 +61,8 @@ typedef struct{
     tMap map;
     tSymbols symbol;
     tPlayer pacman;
-    tGhost ghosts[30];
-    tFood foods[30];
+    tGhost ghosts[TAM];
+    tFood foods[TAM];
     int foodAmount;
     int ghostAmount;
     int over;
@@ -85,10 +88,17 @@ tGame moveGhosts(tGame game);
 tPlayer receiveMove(tGame game);
 tGame verifyGameResults(tGame game);
 void printGameFinalStatus(tGame game);
+void GenerateResumeFile(tGame game, char path[]);
+void GenerateStatisticsFile(tGame game, char path[]);
 
-int main(){
+int main(int argc, char *argv[]){
     tGame game;
-    int continueGame = 1;
+    char *path = argv[1];
+
+    if(argc < 2){
+        printf("ERRO: O diretorio de arquivos de configuracao nao foi informado\n");
+        return 0;
+    }
 
     game = createGame();
 
@@ -101,6 +111,9 @@ int main(){
     }while(!(game.over));
 
     printGameFinalStatus(game);
+
+    GenerateResumeFile(game, path);
+    GenerateStatisticsFile(game, path);
 
     return 0;
 }
@@ -146,7 +159,7 @@ tGame initialDefinitions(){
     game.pacman.points = 0;
     game.pacman.moveCounter = 0;
     
-    for(i=0; i<30; i++){
+    for(i=0; i<TAM; i++){
         game.ghosts[i].status = 0;
     }
 
@@ -333,6 +346,7 @@ tPlayer receiveMove(tGame game){
 
     scanf("%c%*c", &player.moves[mc].moveInput);
 
+    player.moves[mc].moveResult = 0;
     player.remainingMoves--;
     player.moveCounter++;
     
@@ -435,6 +449,7 @@ tGame movePacman(tGame game, char move){
 
         next.positionI = pI;
         next.positionJ = pJ;
+        game.pacman.moves[game.pacman.moveCounter-1].moveResult = WALLCOLISION;
     }
 
     game.map.board[pI][pJ] = game.symbol.empty;
@@ -465,10 +480,16 @@ tGame verifyGameResults(tGame game){
 
     //verifica se o jogo acabou
     for(i=0;i<game.ghostAmount;i++){
-        if(((game.ghosts[i].ghostPosition.positionI == pI) && (game.ghosts[i].ghostPosition.positionJ ==  pJ)) || (game.pacman.remainingMoves == 0)){
+        if(((game.ghosts[i].ghostPosition.positionI == pI) && (game.ghosts[i].ghostPosition.positionJ ==  pJ))){
             game.over = OVER;
+            game.pacman.moves[game.pacman.moveCounter-1].moveResult = GHOST;
             return game;
         }
+    }
+
+    if(game.pacman.remainingMoves == 0){
+        game.over = OVER;
+        return game;
     }
 
     //verifica se tem uma comida naquela posição
@@ -478,6 +499,7 @@ tGame verifyGameResults(tGame game){
     if(food != -1){
         game.pacman.points++;
         game.foods[food].status = 0;
+        game.pacman.moves[game.pacman.moveCounter-1].moveResult = GETFOOD;
     }
     
     //avalia se tem comida no mapa depois da ultima jogada
@@ -496,14 +518,85 @@ tGame verifyGameResults(tGame game){
 }
 
 void printGameFinalStatus(tGame game){
-    if(game.over == 2){
+    if(game.over == WIN){
         printf("Voce venceu!\n");
     }
-    else if(game.over == 1){
+    else if(game.over == OVER){
         printf("Game over!\n");
     }
 
     printf("Pontuacao final: %d\n", game.pacman.points);
+
+    return;
+}
+
+void GenerateResumeFile(tGame game, char path[]){
+    char fileName[TAM];
+    int i;
+    FILE *pResume = NULL;
+
+    sprintf(fileName, "%s/saida/resumo.txt", path);
+
+    pResume = fopen(fileName, "w");
+    
+    for(i=0; i<game.pacman.moveCounter;i++){
+        if(game.pacman.moves[i].moveResult == 14){
+            fprintf(pResume, "Movimento %d (%c) pegou comida\n", i+1, game.pacman.moves[i].moveInput);
+        }
+        else if(game.pacman.moves[i].moveResult == 13){
+            fprintf(pResume, "Movimento %d (%c) colidiu com a parede\n", i+1, game.pacman.moves[i].moveInput);
+        }
+        else if(game.pacman.moves[i].moveResult == 15){
+            fprintf(pResume, "Movimento %d (%c) fim de jogo por encostar em um fantasma\n", i+1, game.pacman.moves[i].moveInput);
+        }
+    }
+
+    fclose(pResume);
+
+    return;
+}
+
+void GenerateStatisticsFile(tGame game, char path[]){
+    char fileName[TAM];
+    int i=0, m=0, n=0, o=0, a=0, w=0, d=0, s=0;
+
+    m = game.pacman.moveCounter;
+    n = m - game.pacman.points;
+
+    for(i=0; i<m; i++){
+
+        if(game.pacman.moves[i].moveResult == 13){
+            o++;
+        }
+        if(game.pacman.moves[i].moveInput == 'w'){
+            w++;
+        }
+        else if(game.pacman.moves[i].moveInput == 'd'){
+            d++;
+        }
+        else if(game.pacman.moves[i].moveInput == 'a'){
+            a++;
+        }
+        else if(game.pacman.moves[i].moveInput == 's'){
+            s++;
+        }
+    }
+
+    FILE *pStatistics = NULL;
+
+    sprintf(fileName, "%s/saida/estatisticas.txt", path);
+
+    pStatistics = fopen(fileName, "w");
+
+    fprintf(pStatistics, "Numero de movimentos: %d\n", m);
+    fprintf(pStatistics, "Numero de movimentos sem pontuar: %d\n", n);
+    fprintf(pStatistics, "Numero de colisoes com parede: %d\n", o);
+    fprintf(pStatistics, "Numero de movimentos para baixo: %d\n", s);
+    fprintf(pStatistics, "Numero de movimentos para cima: %d\n", w);
+    fprintf(pStatistics, "Numero de movimentos para esquerda: %d\n", a);
+    fprintf(pStatistics, "Numero de movimentos para direita: %d\n", d);
+    
+    fclose(pStatistics);
 
     return;
 }
