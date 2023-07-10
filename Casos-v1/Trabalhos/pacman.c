@@ -72,62 +72,78 @@ typedef struct{
 
 //CABEÇALHOS DAS FUNÇÕES
 
-tGame createGame();
+tGame createGame(char path[]);
 tGame initialDefinitions();
-tMap readMap (tGame game);
+tMap readMapFile (tGame game, char *path);
+tGame readMovesFile(tGame game, char *path);
 tPosition locatePacman(tGame game);
 int locateFood(tGame game, int i, int j);
 tGame initiateFood(tGame game);
 tGame initiateGhosts(tGame game);
-void printMap(tGame game);
-void printInitialGameStatus(tGame game);
+void printMap(tGame game, FILE *pFile);
+void generateInitializationFile(tGame game, char *path);
 tGame playGame(tGame game);
-void printGameState(tGame game);
+void writeExitFile(tGame game, FILE *pFile);
 tGame movePacman(tGame game, char move);
 tGame moveGhosts(tGame game);
-tPlayer receiveMove(tGame game);
 tGame verifyGameResults(tGame game);
-void printGameFinalStatus(tGame game);
-void GenerateResumeFile(tGame game, char path[]);
-void GenerateStatisticsFile(tGame game, char path[]);
+void printGameFinalStatus(tGame game, FILE *pExit);
+void generateResumeFile(tGame game, char path[]);
+void generateStatisticsFile(tGame game, char path[]);
 
 int main(int argc, char *argv[]){
     tGame game;
     char *path = argv[1];
+    FILE *pExit;
+    char exitPath[TAM];
 
     if(argc < 2){
         printf("ERRO: O diretorio de arquivos de configuracao nao foi informado\n");
         return 0;
     }
 
-    game = createGame();
+    game = createGame(path);
 
-    printInitialGameStatus(game);
+    generateInitializationFile(game, path);
+
+    //criar arquivo de saida
+    sprintf(exitPath, "%s/saida/saida.txt", path);
+
+    pExit = fopen(exitPath, "w");
 
     do{
         game = playGame(game);
-        printGameState(game);
-
+        writeExitFile(game, pExit);
     }while(!(game.over));
 
-    printGameFinalStatus(game);
+    printGameFinalStatus(game, pExit);
+    
+    fclose(pExit);
 
-    GenerateResumeFile(game, path);
-    GenerateStatisticsFile(game, path);
+    //generateResumeFile(game, path);
+    //generateStatisticsFile(game, path);
 
     return 0;
 }
 
-tGame createGame(){
+tGame createGame(char *path){
     tGame game;
-    
+    char mapPath[TAM];
+    FILE *pMap;
+
     game = initialDefinitions();
 
-    scanf("%d %d %d\n", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
+    sprintf(mapPath, "%s/mapa.txt", path);
+
+    pMap = fopen(mapPath, "r");
+
+    fscanf(pMap, "%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
 
     game.pacman.remainingMoves = game.pacman.initialMoves;
 
-    game.map = readMap(game);
+    game.map = readMapFile(game, path);
+    
+    game = readMovesFile(game, path);
 
     game.pacman.playerPosition = locatePacman(game);
 
@@ -136,6 +152,8 @@ tGame createGame(){
     game = initiateGhosts(game);
 
     //initiatePortals(game);
+
+    fclose(pMap);
 
     return game;
 }
@@ -166,21 +184,50 @@ tGame initialDefinitions(){
     return game;
 }
 
-tMap readMap (tGame game){
+tMap readMapFile(tGame game, char *path) {
     tMap map;
     int i, j;
+    char mapPath[TAM];
+    FILE *pMap;
 
-    for(i=0; i<game.map.sizeI; i++){
-        for(j=0; j<game.map.sizeJ; j++){
-            scanf("%c", &map.board[i][j]);
+    sprintf(mapPath, "%s/mapa.txt", path);
+
+    pMap = fopen(mapPath, "r");
+
+    fscanf(pMap, "%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
+    
+    for (i = 0; i < game.map.sizeI; i++) {
+        for (j = 0; j < game.map.sizeJ; j++) {
+            fscanf(pMap, "%c", &map.board[i][j]); 
         }
-        scanf("%*c");
+        fscanf(pMap, "%*c");
     }
+
+    fclose(pMap);
 
     map.sizeI = game.map.sizeI;
     map.sizeJ = game.map.sizeJ;
-    
+
     return map;
+}
+
+tGame readMovesFile(tGame game, char *path){
+    int i=0;
+    char movesPath[TAM];
+    FILE *pMoves;
+
+    sprintf(movesPath, "%s/jogadas.txt", path);
+
+    pMoves = fopen(movesPath, "r");
+
+    while(!feof(pMoves)){
+        fscanf(pMoves, "%c%*c", &game.pacman.moves[i].moveInput);
+        i++;
+    }
+
+    fclose(pMoves);
+
+    return game;
 }
 
 tPosition locatePacman(tGame game){
@@ -272,46 +319,47 @@ tGame initiateGhosts(tGame game){
     return game;
 }
 
-void printMap(tGame game){
+void printMap(tGame game, FILE *pFile){
     int i, j;
-
-    for(i=0; i<game.map.sizeI; i++){
-        for(j=0; j<game.map.sizeJ; j++){
-            if(locateFood(game, i, j) != -1 && 
-                game.map.board[i][j] == game.symbol.empty){
-
-                printf("%c", game.symbol.food);
+    
+    for(i = 0; i < game.map.sizeI; i++){
+        for(j = 0; j < game.map.sizeJ; j++){
+            if(locateFood(game, i, j) != -1 && game.map.board[i][j] == game.symbol.empty){
+                fprintf(pFile, "%c", game.symbol.food);
             }
             else{
-                printf("%c", game.map.board[i][j]);
+                fprintf(pFile, "%c", game.map.board[i][j]);
             }
         }
-        printf("\n");
+        fprintf(pFile, "\n");
     }
 }
 
-void printInitialGameStatus(tGame game){
-    int i, j;
+void generateInitializationFile(tGame game, char *path){
+    char fileName[TAM];
+    FILE *pInit;
     
-    printMap(game);
+    sprintf(fileName, "%s/saida/inicializacao.txt", path);
 
-    printf("Pac-Man comecara o jogo na linha %d e coluna %d\n\n",
-            game.pacman.playerPosition.positionI+1,
-            game.pacman.playerPosition.positionJ+1);
+    pInit = fopen(fileName, "w");
 
+    printMap(game, pInit);
 
-    return;
+    fprintf(pInit, "Pac-Man comecara o jogo na linha %d e coluna %d\n",
+            game.pacman.playerPosition.positionI + 1,
+            game.pacman.playerPosition.positionJ + 1);
+
+    fclose(pInit);
 }
 
-
-void printGameState(tGame game){
+void writeExitFile(tGame game, FILE *pFile){
     int i; 
 
     i = game.pacman.moveCounter;
 
-    printf("Estado do jogo apos o movimento '%c':\n", game.pacman.moves[i-1].moveInput);
-    printMap(game);
-    printf("Pontuacao: %d\n\n", game.pacman.points);
+    fprintf(pFile, "Estado do jogo apos o movimento '%c':\n", game.pacman.moves[i-1].moveInput);
+    printMap(game, pFile);
+    fprintf(pFile, "Pontuacao: %d\n\n", game.pacman.points);
 
     return;
 }
@@ -320,9 +368,11 @@ tGame playGame(tGame game){
     int mc; 
     char move; 
 
-    game.pacman = receiveMove(game);
-
     mc = game.pacman.moveCounter;
+
+    game.pacman.moves[mc].moveResult = 0;
+    game.pacman.remainingMoves--;
+    game.pacman.moveCounter++;
 
     move = game.pacman.moves[mc-1].moveInput;
 
@@ -333,24 +383,6 @@ tGame playGame(tGame game){
     game = verifyGameResults(game);
 
     return game;
-}
-
-tPlayer receiveMove(tGame game){
-    tPlayer player;
-
-    player = game.pacman;
-
-    int mc; 
-
-    mc = player.moveCounter;
-
-    scanf("%c%*c", &player.moves[mc].moveInput);
-
-    player.moves[mc].moveResult = 0;
-    player.remainingMoves--;
-    player.moveCounter++;
-    
-    return player;
 }
 
 tGame moveGhosts(tGame game){
@@ -449,7 +481,7 @@ tGame movePacman(tGame game, char move){
 
         next.positionI = pI;
         next.positionJ = pJ;
-        game.pacman.moves[game.pacman.moveCounter].moveResult = WALLCOLISION;
+        game.pacman.moves[game.pacman.moveCounter-1].moveResult = WALLCOLISION;
     }
 
     game.map.board[pI][pJ] = game.symbol.empty;
@@ -482,7 +514,7 @@ tGame verifyGameResults(tGame game){
     for(i=0;i<game.ghostAmount;i++){
         if(((game.ghosts[i].ghostPosition.positionI == pI) && (game.ghosts[i].ghostPosition.positionJ ==  pJ))){
             game.over = OVER;
-            game.pacman.moves[game.pacman.moveCounter].moveResult = GHOST;
+            game.pacman.moves[game.pacman.moveCounter-1].moveResult = GHOST;
             return game;
         }
     }
@@ -499,7 +531,7 @@ tGame verifyGameResults(tGame game){
     if(food != -1){
         game.pacman.points++;
         game.foods[food].status = 0;
-        game.pacman.moves[game.pacman.moveCounter].moveResult = 14;
+        game.pacman.moves[game.pacman.moveCounter-1].moveResult = GETFOOD;
     }
     
     //avalia se tem comida no mapa depois da ultima jogada
@@ -517,22 +549,22 @@ tGame verifyGameResults(tGame game){
     return game;
 }
 
-void printGameFinalStatus(tGame game){
-    if(game.over == 2){
-        printf("Voce venceu!\n");
+void printGameFinalStatus(tGame game, FILE *pExit){
+    if(game.over == WIN){
+        fprintf(pExit, "Voce venceu!\n");
     }
-    else if(game.over == 1){
-        printf("Game over!\n");
+    else if(game.over == OVER){
+        fprintf(pExit,"Game over!\n");
     }
 
-    printf("Pontuacao final: %d\n", game.pacman.points);
+    fprintf(pExit,"Pontuacao final: %d\n", game.pacman.points);
 
     return;
 }
 
 void GenerateInitializationFile(tGame game, char path[]);
 
-void GenerateResumeFile(tGame game, char path[]){
+void generateResumeFile(tGame game, char path[]){
     char fileName[TAM];
     int i;
     FILE *pResume = NULL;
@@ -543,33 +575,30 @@ void GenerateResumeFile(tGame game, char path[]){
     
     for(i=0; i<game.pacman.moveCounter;i++){
         if(game.pacman.moves[i].moveResult == 14){
-            fprintf(pResume, "Movimento %d (%c) pegou comida\n", i, game.pacman.moves[i].moveInput);
+            fprintf(pResume, "Movimento %d (%c) pegou comida\n", i+1, game.pacman.moves[i].moveInput);
         }
         else if(game.pacman.moves[i].moveResult == 13){
-            fprintf(pResume, "Movimento %d (%c) colidiu com a parede\n", i, game.pacman.moves[i].moveInput);
+            fprintf(pResume, "Movimento %d (%c) colidiu com a parede\n", i+1, game.pacman.moves[i].moveInput);
         }
         else if(game.pacman.moves[i].moveResult == 15){
-            fprintf(pResume, "Movimento %d (%c) fim de jogo por encostar em um fantasma\n", i, game.pacman.moves[i].moveInput);
+            fprintf(pResume, "Movimento %d (%c) fim de jogo por encostar em um fantasma\n", i+1, game.pacman.moves[i].moveInput);
         }
     }
-
-    fprintf(pResume, "%d %d %d\n", game.pacman.moveCounter, game.pacman.moves[i].moveResult, i);
 
     fclose(pResume);
 
     return;
 }
 
-void GenerateStatisticsFile(tGame game, char path[]){
+void generateStatisticsFile(tGame game, char path[]){
     char fileName[TAM];
     int i=0, m=0, n=0, o=0, a=0, w=0, d=0, s=0;
 
     m = game.pacman.moveCounter;
+    n = m - game.pacman.points;
 
     for(i=0; i<m; i++){
-        if(game.pacman.moves[i].moveResult == 0){
-            n++;
-        }
+
         if(game.pacman.moves[i].moveResult == 13){
             o++;
         }
