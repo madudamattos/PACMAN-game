@@ -37,6 +37,7 @@ typedef struct{
     int sizeI;
     int sizeJ;
     char board[40][100];    
+    int trail[40][100];
 } tMap;
 
 typedef struct{
@@ -90,6 +91,8 @@ tGame verifyGameResults(tGame game);
 void printGameFinalStatus(tGame game);
 void GenerateResumeFile(tGame game, char path[]);
 void GenerateStatisticsFile(tGame game, char path[]);
+void GenerateTrailFile(tGame game, char path[]);
+void printTrail(tGame game);
 
 int main(int argc, char *argv[]){
     tGame game;
@@ -114,6 +117,8 @@ int main(int argc, char *argv[]){
 
     GenerateResumeFile(game, path);
     GenerateStatisticsFile(game, path);
+    GenerateTrailFile(game, path);
+    //printTrail(game);
 
     return 0;
 }
@@ -130,6 +135,9 @@ tGame createGame(){
     game.map = readMap(game);
 
     game.pacman.playerPosition = locatePacman(game);
+
+    //insert pacman inicial position in the trail matrix
+    game.map.trail[game.pacman.playerPosition.positionI][game.pacman.playerPosition.positionJ] = game.pacman.moveCounter;
 
     game = initiateFood(game);
 
@@ -179,7 +187,14 @@ tMap readMap (tGame game){
 
     map.sizeI = game.map.sizeI;
     map.sizeJ = game.map.sizeJ;
-    
+
+    //inicializa a trilha
+    for(i=0; i<game.map.sizeI; i++){
+        for(j=0; j<game.map.sizeJ; j++){
+            map.trail[i][j] = -1;
+        }
+    }
+
     return map;
 }
 
@@ -460,7 +475,8 @@ tGame movePacman(tGame game, char move){
     //se a proxima posicao NAO for um fantasma,ele pode mover pra proxima posição
         
     if(!(game.map.board[next.positionI][next.positionJ] >= 'A' && game.map.board[next.positionI][next.positionJ] <= 'Z')){
-        game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;      
+        game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;
+        game.map.trail[next.positionI][next.positionJ] = game.pacman.moveCounter;      
     }     
 
     game.pacman.playerPosition.positionI = next.positionI;
@@ -600,3 +616,47 @@ void GenerateStatisticsFile(tGame game, char path[]){
 
     return;
 }
+
+void GenerateTrailFile(tGame game, char path[]){
+    char fileName[TAM];
+    int i, j;
+    FILE *pTrail = NULL;
+
+    sprintf(fileName, "%s/saida/trilha.txt", path);
+
+    pTrail = fopen(fileName, "w");
+    
+    for(i=0; i<game.map.sizeI;i++){
+        for(j=0; j<game.map.sizeJ;j++){
+            if(game.map.trail[i][j] == -1){
+                fprintf(pTrail, "%c ", game.symbol.wall);
+            }
+            else{
+                fprintf(pTrail, "%d ", game.map.trail[i][j]);
+            }
+        }
+        fprintf(pTrail, "\n");
+    }
+
+    fclose(pTrail);
+
+    return;
+}
+
+// void printTrail(tGame game){
+//     int i, j;
+
+//     for(i=0; i<game.map.sizeI;i++){
+//         for(j=0; j<game.map.sizeJ;j++){
+//             if(game.map.trail[i][j] == -1){
+//                 printf("%c ", game.symbol.wall);
+//             }
+//             else{
+//                 printf("%d ", game.map.trail[i][j]);
+//             }
+//         }
+//         printf("\n");
+//     }
+
+//     return;
+// }
