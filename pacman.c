@@ -104,16 +104,16 @@ int main(int argc, char *argv[]){
 
     printInitialGameStatus(game, path);
 
-    do{
-        game = playGame(game);
-        printGameState(game);
+    // do{
+    //     game = playGame(game);
+    //     printGameState(game);
 
-    }while(!(game.over));
+    // }while(!(game.over));
 
-    printGameFinalStatus(game);
+    // printGameFinalStatus(game);
 
-    GenerateResumeFile(game, path);
-    GenerateStatisticsFile(game, path);
+    // GenerateResumeFile(game, path);
+    // GenerateStatisticsFile(game, path);
 
     return 0;
 }
@@ -185,7 +185,7 @@ tMap readMap(tGame game, char *path) {
     pMap = fopen(mapPath, "r");
 
     fscanf(pMap, "%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
-
+    
     for (i = 0; i < game.map.sizeI; i++) {
         for (j = 0; j < game.map.sizeJ; j++) {
             fscanf(pMap, "%c", &map.board[i][j]); 
