@@ -92,7 +92,7 @@ void printGameFinalStatus(tGame game);
 void GenerateResumeFile(tGame game, char path[]);
 void GenerateStatisticsFile(tGame game, char path[]);
 void GenerateTrailFile(tGame game, char path[]);
-void printTrail(tGame game);
+//void printTrail(tGame game);
 
 int main(int argc, char *argv[]){
     tGame game;
@@ -317,7 +317,6 @@ void printInitialGameStatus(tGame game){
 
     return;
 }
-
 
 void printGameState(tGame game){
     int i; 
