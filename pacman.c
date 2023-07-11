@@ -67,8 +67,7 @@ typedef struct{
     int foodAmount;
     int ghostAmount;
     int over;
-    //tPosition portals[30];
-    //int portalAmount; 
+    tPosition portals[2];
 } tGame;
 
 //CABEÇALHOS DAS FUNÇÕES
@@ -79,6 +78,7 @@ tMap readMapFile(tGame game, char *path);
 tGame readMovesFile(tGame game, char *path);
 tPosition locatePacman(tGame game);
 int locateFood(tGame game, int i, int j);
+int locatePortals(tGame game, int i, int j);
 tGame initiateFood(tGame game);
 tGame initiateGhosts(tGame game);
 void printMap(tGame game, FILE *pFile);
@@ -94,6 +94,7 @@ void generateInitializationFile(tGame game, char *path);
 void generateResumeFile(tGame game, char path[]);
 void generateStatisticsFile(tGame game, char path[]);
 void generateTrailFile(tGame game, char path[]);
+tGame initiatePortals(tGame game);
 
 int main(int argc, char *argv[]){
     tGame game;
@@ -163,6 +164,8 @@ tGame createGame(char *path){
     game = initiateFood(game);
 
     game = initiateGhosts(game);
+
+    game = initiatePortals(game);
 
     fclose(pMap);
 
@@ -339,6 +342,38 @@ tGame initiateGhosts(tGame game){
     return game;
 }
 
+int locatePortals(tGame game, int i, int j){
+    int k, thereIsAPortalInThisPosition = -1;
+    
+    for(k=0; k<2; k++){
+        if(game.portals[k].positionI == i &&
+           game.portals[k].positionJ == j ){
+            thereIsAPortalInThisPosition = k;
+            break;
+           }
+    }
+
+    return thereIsAPortalInThisPosition;
+}
+
+tGame initiatePortals(tGame game){
+    int i, j, k=0;
+    int food=0;
+
+    for(i=0;i<game.map.sizeI; i++){
+        for(j=0;j<game.map.sizeJ; j++){
+            if(game.map.board[i][j] == game.symbol.portal){
+                game.portals[k].positionI = i;
+                game.portals[k].positionJ = j;
+                k++;
+                game.map.board[i][j] = game.symbol.empty;
+            }
+        }
+    }
+
+    return game;
+}
+
 void printMap(tGame game, FILE *pFile){
     int i, j;
 
@@ -348,6 +383,9 @@ void printMap(tGame game, FILE *pFile){
                 game.map.board[i][j] == game.symbol.empty){
 
                 fprintf(pFile, "%c", game.symbol.food);
+            }
+            else if(locatePortals(game, i, j) != -1 && game.map.board[i][j] == game.symbol.empty){
+                fprintf(pFile, "%c", game.symbol.portal);
             }
             else{
                 fprintf(pFile, "%c", game.map.board[i][j]);
@@ -473,7 +511,7 @@ tGame moveGhosts(tGame game){
 }
 
 tGame movePacman(tGame game, char move){
-    int i, pI, pJ, a; 
+    int i, pI, pJ, a, portal; 
     tPosition next;
 
     pI = game.pacman.playerPosition.positionI;
@@ -507,6 +545,16 @@ tGame movePacman(tGame game, char move){
         next.positionJ = pJ;
         game.pacman.moves[game.pacman.moveCounter-1].moveResult = WALLCOLISION;
     }
+    else if(locatePortals(game, next.positionI, next.positionJ) != -1 && game.map.board[next.positionI][next.positionJ] == game.symbol.empty){
+        if(game.portals[0].positionI == next.positionI && game.portals[0].positionJ == next.positionJ){
+            next.positionI = game.portals[1].positionI;
+            next.positionJ = game.portals[1].positionJ;
+        }
+        else if(game.portals[1].positionI == next.positionI && game.portals[1].positionJ == next.positionJ){
+            next.positionI = game.portals[0].positionI;
+            next.positionJ = game.portals[0].positionJ;
+        }
+    }
 
     game.map.board[pI][pJ] = game.symbol.empty;
 
@@ -517,7 +565,18 @@ tGame movePacman(tGame game, char move){
         
     if(!(game.map.board[next.positionI][next.positionJ] >= 'A' && game.map.board[next.positionI][next.positionJ] <= 'Z')){
         game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;
-        game.map.trail[next.positionI][next.positionJ] = game.pacman.moveCounter;      
+        game.map.trail[next.positionI][next.positionJ] = game.pacman.moveCounter;
+
+        portal = locatePortals(game, next.positionI, next.positionJ);
+
+        if(portal != -1){
+            if(portal == 0){
+                game.map.trail[game.portals[1].positionI][game.portals[1].positionJ] = game.pacman.moveCounter;
+            }
+            else if(portal == 1){
+                game.map.trail[game.portals[0].positionI][game.portals[0].positionJ] = game.pacman.moveCounter;
+            }
+        }          
     }     
 
     game.pacman.playerPosition.positionI = next.positionI;
