@@ -37,6 +37,7 @@ typedef struct{
     int sizeI;
     int sizeJ;
     char board[40][100];    
+    int trail[40][100];
 } tMap;
 
 typedef struct{
@@ -72,24 +73,27 @@ typedef struct{
 
 //CABEÇALHOS DAS FUNÇÕES
 
-tGame createGame(char path[]);
+tGame createGame(char *path);
 tGame initialDefinitions();
-tMap readMapFile (tGame game, char *path);
+tMap readMapFile(tGame game, char *path);
 tGame readMovesFile(tGame game, char *path);
 tPosition locatePacman(tGame game);
 int locateFood(tGame game, int i, int j);
 tGame initiateFood(tGame game);
 tGame initiateGhosts(tGame game);
 void printMap(tGame game, FILE *pFile);
-void generateInitializationFile(tGame game, char *path);
+//void printInitialGameStatus(tGame game);
 tGame playGame(tGame game);
-void writeExitFile(tGame game, FILE *pFile);
+void printGameState(tGame game);
 tGame movePacman(tGame game, char move);
 tGame moveGhosts(tGame game);
 tGame verifyGameResults(tGame game);
-void printGameFinalStatus(tGame game, FILE *pExit);
+void writeExitFile(tGame game, FILE *pFile);
+void writeExitFinalStatus(tGame game, FILE *pFile);
+void generateInitializationFile(tGame game, char *path);
 void generateResumeFile(tGame game, char path[]);
 void generateStatisticsFile(tGame game, char path[]);
+void generateTrailFile(tGame game, char path[]);
 
 int main(int argc, char *argv[]){
     tGame game;
@@ -111,17 +115,23 @@ int main(int argc, char *argv[]){
 
     pExit = fopen(exitPath, "w");
 
-    do{
+    do {
         game = playGame(game);
-        writeExitFile(game, pExit);
-    }while(!(game.over));
 
-    printGameFinalStatus(game, pExit);
-    
+        if (game.over)
+            break;
+
+        writeExitFile(game, pExit);
+
+    } while (1);
+
+    writeExitFinalStatus(game, pExit);
+
     fclose(pExit);
 
     //generateResumeFile(game, path);
     //generateStatisticsFile(game, path);
+    //generateTrailFile(game, path);
 
     return 0;
 }
@@ -137,23 +147,26 @@ tGame createGame(char *path){
 
     pMap = fopen(mapPath, "r");
 
-    fscanf(pMap, "%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
+    fscanf(pMap,"%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
 
     game.pacman.remainingMoves = game.pacman.initialMoves;
 
     game.map = readMapFile(game, path);
-    
+
     game = readMovesFile(game, path);
 
     game.pacman.playerPosition = locatePacman(game);
+
+    //insert pacman inicial position in the trail matrix
+    game.map.trail[game.pacman.playerPosition.positionI][game.pacman.playerPosition.positionJ] = game.pacman.moveCounter;
 
     game = initiateFood(game);
 
     game = initiateGhosts(game);
 
-    //initiatePortals(game);
-
     fclose(pMap);
+
+    //game = initiatePortals(game);
 
     return game;
 }
@@ -184,7 +197,7 @@ tGame initialDefinitions(){
     return game;
 }
 
-tMap readMapFile(tGame game, char *path) {
+tMap readMapFile(tGame game, char *path){
     tMap map;
     int i, j;
     char mapPath[TAM];
@@ -195,10 +208,10 @@ tMap readMapFile(tGame game, char *path) {
     pMap = fopen(mapPath, "r");
 
     fscanf(pMap, "%d %d %d%*c", &game.map.sizeI, &game.map.sizeJ, &game.pacman.initialMoves);
-    
-    for (i = 0; i < game.map.sizeI; i++) {
-        for (j = 0; j < game.map.sizeJ; j++) {
-            fscanf(pMap, "%c", &map.board[i][j]); 
+
+    for(i=0; i<game.map.sizeI; i++){
+        for(j=0; j<game.map.sizeJ; j++){
+            fscanf(pMap, "%c", &map.board[i][j]);
         }
         fscanf(pMap, "%*c");
     }
@@ -207,6 +220,13 @@ tMap readMapFile(tGame game, char *path) {
 
     map.sizeI = game.map.sizeI;
     map.sizeJ = game.map.sizeJ;
+
+    //inicializa a trilha
+    for(i=0; i<game.map.sizeI; i++){
+        for(j=0; j<game.map.sizeJ; j++){
+            map.trail[i][j] = -1;
+        }
+    }
 
     return map;
 }
@@ -321,10 +341,12 @@ tGame initiateGhosts(tGame game){
 
 void printMap(tGame game, FILE *pFile){
     int i, j;
-    
-    for(i = 0; i < game.map.sizeI; i++){
-        for(j = 0; j < game.map.sizeJ; j++){
-            if(locateFood(game, i, j) != -1 && game.map.board[i][j] == game.symbol.empty){
+
+    for(i=0; i<game.map.sizeI; i++){
+        for(j=0; j<game.map.sizeJ; j++){
+            if(locateFood(game, i, j) != -1 && 
+                game.map.board[i][j] == game.symbol.empty){
+
                 fprintf(pFile, "%c", game.symbol.food);
             }
             else{
@@ -333,6 +355,8 @@ void printMap(tGame game, FILE *pFile){
         }
         fprintf(pFile, "\n");
     }
+
+    return;
 }
 
 void generateInitializationFile(tGame game, char *path){
@@ -492,7 +516,8 @@ tGame movePacman(tGame game, char move){
     //se a proxima posicao NAO for um fantasma,ele pode mover pra proxima posição
         
     if(!(game.map.board[next.positionI][next.positionJ] >= 'A' && game.map.board[next.positionI][next.positionJ] <= 'Z')){
-        game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;      
+        game.map.board[next.positionI][next.positionJ] = game.symbol.pacman;
+        game.map.trail[next.positionI][next.positionJ] = game.pacman.moveCounter;      
     }     
 
     game.pacman.playerPosition.positionI = next.positionI;
@@ -549,7 +574,7 @@ tGame verifyGameResults(tGame game){
     return game;
 }
 
-void printGameFinalStatus(tGame game, FILE *pExit){
+void writeExitFinalStatus(tGame game, FILE *pExit){
     if(game.over == WIN){
         fprintf(pExit, "Voce venceu!\n");
     }
@@ -629,6 +654,32 @@ void generateStatisticsFile(tGame game, char path[]){
     fprintf(pStatistics, "Numero de movimentos para direita: %d\n", d);
     
     fclose(pStatistics);
+
+    return;
+}
+
+void generateTrailFile(tGame game, char path[]){
+    char fileName[TAM];
+    int i, j;
+    FILE *pTrail = NULL;
+
+    sprintf(fileName, "%s/saida/trilha.txt", path);
+
+    pTrail = fopen(fileName, "w");
+    
+    for(i=0; i<game.map.sizeI;i++){
+        for(j=0; j<game.map.sizeJ;j++){
+            if(game.map.trail[i][j] == -1){
+                fprintf(pTrail, "%c ", game.symbol.wall);
+            }
+            else{
+                fprintf(pTrail, "%d ", game.map.trail[i][j]);
+            }
+        }
+        fprintf(pTrail, "\n");
+    }
+
+    fclose(pTrail);
 
     return;
 }
