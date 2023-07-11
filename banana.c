@@ -15,6 +15,7 @@ typedef struct{
 typedef struct{
     char moveInput;
     int moveResult;
+    tPosition position;
 }tMove;
 
 typedef struct{
@@ -95,6 +96,9 @@ void generateResumeFile(tGame game, char path[]);
 void generateStatisticsFile(tGame game, char path[]);
 void generateTrailFile(tGame game, char path[]);
 tGame initiatePortals(tGame game);
+int locateGhost(tGame game, int i, int j);
+int checksIfMoveIsInvalid(char move);
+char changeMove(char move);
 
 int main(int argc, char *argv[]){
     tGame game;
@@ -122,7 +126,11 @@ int main(int argc, char *argv[]){
         game.pacman.moves[game.pacman.moveCounter].moveResult = 0;
         game.pacman.remainingMoves--;
         game.pacman.moveCounter++;
-
+        
+        if(checksIfMoveIsInvalid(game.pacman.moves[game.pacman.moveCounter].moveInput)){
+            game.over = 1;
+        }
+        
         move = game.pacman.moves[game.pacman.moveCounter-1].moveInput;
 
         game = moveGhosts(game);
@@ -130,10 +138,10 @@ int main(int argc, char *argv[]){
         game = movePacman(game, move);
 
         game = verifyGameResults(game);
-
+        
         writeExitFile(game, pExit);
 
-    } while (!game.over);
+    } while(!game.over);
 
     writeExitFinalStatus(game, pExit);
 
@@ -166,8 +174,10 @@ tGame createGame(char *path){
     game = readMovesFile(game, path);
 
     game.pacman.playerPosition = locatePacman(game);
+    
+    game.pacman.moves[0].position = game.pacman.playerPosition;
 
-    //insert pacman inicial position in the trail matrix
+    //insert player inicial position in the trail matrix
     game.map.trail[game.pacman.playerPosition.positionI][game.pacman.playerPosition.positionJ] = game.pacman.moveCounter;
 
     game = initiateFood(game);
@@ -276,7 +286,7 @@ tPosition locatePacman(tGame game){
             }
         }
     }
-
+   
     return pacman;
 }
 
@@ -316,6 +326,21 @@ tGame initiateFood(tGame game){
     game.foodAmount = food;
 
     return game;
+}
+
+int locateGhost(tGame game, int i, int j){
+    int k, thereIsAGhostInThisPosition = -1;
+    
+    for(k=0; k<game.ghostAmount; k++){
+        if(game.ghosts[k].ghostPosition.positionI == i &&
+           game.ghosts[k].ghostPosition.positionJ == j && 
+           game.ghosts[k].status == 1){
+            thereIsAGhostInThisPosition = k;
+            break;
+           }
+    }
+
+    return thereIsAGhostInThisPosition;
 }
 
 tGame initiateGhosts(tGame game){
@@ -437,6 +462,34 @@ void writeExitFile(tGame game, FILE *pFile){
     return;
 }
 
+char changeMove(char move){
+    char oppositeMove;
+    
+    if(move == 'w'){
+        oppositeMove = 's';
+    }
+    else if(move == 's'){
+        oppositeMove = 'w';
+    }
+    else if(move == 'd'){
+        oppositeMove = 'a';
+    }
+    else if(move == 'a'){
+        oppositeMove = 'd';
+    }
+    
+    return oppositeMove;
+}
+
+int checksIfMoveIsInvalid(char move){
+    if(move == 'a' || move == 'd' || move == 'w' || move == 's'){
+        return 0;
+    }
+    else{
+        return 1;
+    }
+}
+
 tGame moveGhosts(tGame game){
     int i, pI, pJ; 
     tPosition next;
@@ -501,9 +554,9 @@ tGame moveGhosts(tGame game){
 }
 
 tGame movePacman(tGame game, char move){
-    int i, pI, pJ, a, portal; 
+    int i, pI, pJ, a, portal, ghost; 
     tPosition next;
-
+    
     pI = game.pacman.playerPosition.positionI;
     pJ = game.pacman.playerPosition.positionJ;
 
@@ -545,9 +598,16 @@ tGame movePacman(tGame game, char move){
             next.positionJ = game.portals[0].positionJ;
         }
     }
-
-    game.map.board[pI][pJ] = game.symbol.empty;
-
+    
+    ghost = locateGhost(game, pI, pJ);
+    
+    if(locateGhost(game, pI, pJ) != -1){
+        game.map.board[pI][pJ] = game.ghosts[ghost].type;
+    }
+    else{
+        game.map.board[pI][pJ] = game.symbol.empty;
+    }
+    
     //após as avaliações, o pacman pode mover pra próxima posição 
     //mas primeiro tem que limpar a posição antiga
     
@@ -568,10 +628,13 @@ tGame movePacman(tGame game, char move){
             }
         }          
     }     
-
+   
     game.pacman.playerPosition.positionI = next.positionI;
     game.pacman.playerPosition.positionJ = next.positionJ;
-
+    
+    game.pacman.moves[game.pacman.moveCounter].position.positionI = next.positionI;
+    game.pacman.moves[game.pacman.moveCounter].position.positionI = next.positionJ;
+    
     return game;
 }
 
@@ -579,6 +642,7 @@ tGame verifyGameResults(tGame game){
     int i, j;
     int pI, pJ;
     int food = -1;
+    int ghost = -1;
     int flag = -7;
     int points=0;
 
@@ -587,7 +651,7 @@ tGame verifyGameResults(tGame game){
     pI = game.pacman.playerPosition.positionI;
     pJ = game.pacman.playerPosition.positionJ;
 
-    //verifica se o jogo acabou
+    //verifica se foi pra mesma posiçao de um fantasma
     for(i=0;i<game.ghostAmount;i++){
         if(((game.ghosts[i].ghostPosition.positionI == pI) && (game.ghosts[i].ghostPosition.positionJ ==  pJ))){
             game.over = OVER;
@@ -600,6 +664,20 @@ tGame verifyGameResults(tGame game){
         game.over = OVER;
         return game;
     }
+    
+    //CASO ESPECIFICO EM QUE O FANTASMA CRUZA COM O PACMAN:
+    
+    if(game.pacman.moveCounter > 1){
+        ghost = locateGhost(game, game.pacman.moves[game.pacman.moveCounter-2].position.positionI, game.pacman.moves[game.pacman.moveCounter-2].position.positionJ);
+        if(ghost != -1){
+            if(game.ghosts[ghost].movePattern == changeMove(game.pacman.moves[game.pacman.moveCounter-2].moveInput)){
+                game.over = OVER;
+                game.pacman.moves[game.pacman.moveCounter-1].moveResult = GHOST;
+                return game;
+            }
+        }
+    }
+    ///////////////////////////////////////////////////////////////
 
     //verifica se tem uma comida naquela posição
     food = locateFood(game, pI, pJ);
