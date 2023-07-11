@@ -642,20 +642,28 @@ void GenerateTrailFile(tGame game, char path[]){
     return;
 }
 
-// void printTrail(tGame game){
-//     int i, j;
+void GenerateRankingFile(tGame game, char path[]){
+    char fileName[TAM];
+    int i, j;
+    FILE *pRank = NULL;
 
-//     for(i=0; i<game.map.sizeI;i++){
-//         for(j=0; j<game.map.sizeJ;j++){
-//             if(game.map.trail[i][j] == -1){
-//                 printf("%c ", game.symbol.wall);
-//             }
-//             else{
-//                 printf("%d ", game.map.trail[i][j]);
-//             }
-//         }
-//         printf("\n");
-//     }
+    sprintf(fileName, "%s/saida/trilha.txt", path);
 
-//     return;
-// }
+    pRank = fopen(fileName, "w");
+    
+    for(i=0; i<game.map.sizeI;i++){
+        for(j=0; j<game.map.sizeJ;j++){
+            if(game.map.trail[i][j] == -1){
+                fprintf(pTrail, "%c ", game.symbol.wall);
+            }
+            else{
+                fprintf(pTrail, "%d ", game.map.trail[i][j]);
+            }
+        }
+        fprintf(pTrail, "\n");
+    }
+
+    fclose(pRank);
+
+    return;
+}
