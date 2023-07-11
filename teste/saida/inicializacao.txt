@@ -1,7 +1,11 @@
-#######
-#*   *#
-#  * B#
-#  ##*#
-#>    #
-#######
-Pac-Man comecara o jogo na linha 5 e coluna 2
+##########
+# *      #
+#    ### #
+# *#    *#
+# ###    #
+#I  > *  #
+#**## *  #
+# ## *  C#
+#*     * #
+##########
+Pac-Man comecara o jogo na linha 6 e coluna 5
